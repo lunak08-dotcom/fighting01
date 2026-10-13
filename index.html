@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>오늘의 응원 한마디</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" />
+  <style>
+    :root {
+      --bg: #FFF7EE;
+      --card: #FFFFFF;
+      --ink: #1F1B16;
+      --muted: #6B6258;
+      --point: #E8590C;
+      --point-dark: #C2410C;
+      --line: #EADFD3;
+      --ok-bg: #FFF1E3;
+      --err: #B42318;
+      --err-bg: #FEECEB;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Pretendard Variable", Pretendard, system-ui, -apple-system, "Segoe UI", sans-serif;
+      font-size: 20px;
+      line-height: 1.6;
+      display: flex;
+      justify-content: center;
+      padding: 32px 16px 48px;
+    }
+
+    main {
+      width: 100%;
+      max-width: 560px;
+    }
+
+    h1 {
+      font-size: clamp(32px, 8vw, 44px);
+      font-weight: 900;
+      letter-spacing: -0.03em;
+      line-height: 1.2;
+      margin: 8px 0 8px;
+    }
+
+    .lead {
+      color: var(--muted);
+      margin: 0 0 28px;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      padding: 24px;
+      box-shadow: 0 6px 24px rgba(31, 27, 22, 0.06);
+    }
+
+    label {
+      display: block;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .hint {
+      display: block;
+      font-size: 16px;
+      font-weight: 400;
+      color: var(--muted);
+    }
+
+    input {
+      width: 100%;
+      font: inherit;
+      font-size: 22px;
+      padding: 14px 16px;
+      border: 2px solid var(--line);
+      border-radius: 14px;
+      background: #FFFDFB;
+      color: var(--ink);
+    }
+
+    input:focus {
+      outline: none;
+      border-color: var(--point);
+    }
+
+    button {
+      width: 100%;
+      margin-top: 16px;
+      min-height: 64px;
+      font: inherit;
+      font-size: 22px;
+      font-weight: 800;
+      color: #fff;
+      background: var(--point);
+      border: 0;
+      border-radius: 14px;
+      cursor: pointer;
+    }
+
+    button:hover { background: var(--point-dark); }
+    button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+    button:disabled { opacity: 0.6; cursor: wait; }
+
+    .result {
+      margin-top: 24px;
+      min-height: 140px;
+      padding: 24px;
+      border-radius: 20px;
+      background: var(--ok-bg);
+      font-size: clamp(22px, 5.5vw, 28px);
+      font-weight: 700;
+      line-height: 1.5;
+      word-break: keep-all;
+      display: flex;
+      align-items: center;
+    }
+
+    .result.empty,
+    .result.loading {
+      color: var(--muted);
+      font-weight: 500;
+      font-size: 20px;
+    }
+
+    .result.error {
+      background: var(--err-bg);
+      color: var(--err);
+      font-size: 20px;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>오늘의 응원 한마디</h1>
+    <p class="lead">닉네임을 적고 버튼을 누르면 응원 한마디가 도착해요.</p>
+
+    <form class="card" id="cheer-form">
+      <label for="nickname">
+        공개용 닉네임
+        <span class="hint">실명 대신 닉네임을 적어 주세요. 비워 두면 '여러분'으로 불러요.</span>
+      </label>
+      <input id="nickname" name="nickname" type="text" maxlength="20" autocomplete="off" placeholder="예: 코딩하는 토끼" />
+      <button type="submit" id="cheer-button">응원 받기</button>
+    </form>
+
+    <section class="result empty" id="result" aria-live="polite">
+      버튼을 누르면 여기에 응원이 나타나요.
+    </section>
+  </main>
+
+  <script>
+    const form = document.getElementById("cheer-form");
+    const input = document.getElementById("nickname");
+    const button = document.getElementById("cheer-button");
+    const result = document.getElementById("result");
+
+    function show(state, text) {
+      result.className = "result " + state;
+      result.textContent = text;
+    }
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+
+      const name = input.value.trim();
+      button.disabled = true;
+      button.textContent = "불러오는 중...";
+      show("loading", "응원 한마디를 불러오는 중이에요...");
+
+      try {
+        // 문장은 서버(api/message.js)가 고릅니다. 화면은 받은 문장만 보여 줍니다.
+        const response = await fetch("api/message?name=" + encodeURIComponent(name), {
+          cache: "no-store",
+        });
+
+        if (!response.ok) {
+          throw new Error("HTTP " + response.status);
+        }
+
+        const data = await response.json();
+        if (!data || typeof data.message !== "string") {
+          throw new Error("응답 형식 오류");
+        }
+
+        show("success", data.message);
+      } catch (error) {
+        // 실패해도 화면에서 대신 문장을 만들지 않습니다.
+        show("error", "응원을 불러오지 못했어요. 서버(API)에 연결할 수 없어요. 잠시 후 다시 눌러 주세요. (" + error.message + ")");
+      } finally {
+        button.disabled = false;
+        button.textContent = "응원 받기";
+      }
+    });
+  </script>
+</body>
+</html>
